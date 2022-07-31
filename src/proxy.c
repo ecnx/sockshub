@@ -298,7 +298,8 @@ static int handle_stream_socks_a ( struct proxy_t *proxy, struct stream_t *strea
         {
             format_ip_port ( &proxy->gateway.saddr, straddr0, sizeof ( straddr0 ) );
 
-            if ( proxy->bridge_enabled && server == &proxy->primary )
+            if ( proxy->bridge_enabled && ( proxy->bridge_both_servers
+                    || server == &proxy->primary ) )
             {
                 format_ip_port ( &proxy->bridge.saddr, straddr1, sizeof ( straddr1 ) );
                 verbose ( "connect (%s:%i) over (%s,%s,%s) using socket:%i...\n", hostname, port,
@@ -366,6 +367,16 @@ static int handle_stream_socks_a ( struct proxy_t *proxy, struct stream_t *strea
         if ( queue_set ( &stream->neighbour->queue, arr, 3 ) < 0 )
         {
             return -1;
+        }
+
+        /* Custom greeting */
+        if ( stream->neighbour->server == &proxy->secondary && proxy->secondary_custom_greeting )
+        {
+            if ( queue_push ( &stream->neighbour->queue, ( uint8_t * ) proxy->secondary_greeting,
+                    strlen ( proxy->secondary_greeting ) ) < 0 )
+            {
+                return -1;
+            }
         }
 
         /* Update levels and events flags */
@@ -519,8 +530,9 @@ static int handle_stream_socks_b ( struct proxy_t *proxy, struct stream_t *strea
             stream->fd );
 
         /* Get destiantion host and port */
-        if ( proxy->bridge_enabled && stream->server == &proxy->primary
-            && stream->level == LEVEL_SOCKS_VER0 )
+        if ( proxy->bridge_enabled &&
+            ( proxy->bridge_both_servers || stream->server == &proxy->primary ) &&
+            stream->level == LEVEL_SOCKS_VER0 )
         {
             ptr_saddr = &proxy->bridge.saddr;
             verbose ( "using bridge after connected to the gateway...\n" );
@@ -616,8 +628,9 @@ static int handle_stream_socks_b ( struct proxy_t *proxy, struct stream_t *strea
         /* Prepare request */
         arr[0] = 5;     /* SOCKS5 version */
         arr[1] = 1;     /* One auth method */
-        if ( proxy->bridge_enabled && stream->server == &proxy->primary
-            && stream->level == LEVEL_SOCKS_REQ0 )
+        if ( proxy->bridge_enabled &&
+            ( proxy->bridge_both_servers || stream->server == &proxy->primary ) &&
+            stream->level == LEVEL_SOCKS_REQ0 )
         {
             arr[2] = 0; /* No auth method */
 
@@ -633,12 +646,21 @@ static int handle_stream_socks_b ( struct proxy_t *proxy, struct stream_t *strea
         }
 
         /* Update levels and events flags */
-        if ( proxy->bridge_enabled && stream->server == &proxy->primary
-            && stream->level == LEVEL_SOCKS_REQ0 )
+        if ( stream->level == LEVEL_SOCKS_REQ0 && proxy->bridge_enabled &&
+            ( proxy->bridge_both_servers || stream->server == &proxy->primary ) )
         {
             stream->level = LEVEL_SOCKS_VER1;
         } else
         {
+            /* Custom greeting */
+            if ( stream->server == &proxy->secondary && proxy->secondary_custom_greeting )
+            {
+                if ( queue_push ( &stream->queue, ( uint8_t * ) proxy->secondary_greeting,
+                        strlen ( proxy->secondary_greeting ) ) < 0 )
+                {
+                    return -1;
+                }
+            }
             stream->level = LEVEL_SOCKS_VER;
         }
         stream->events = POLLOUT;

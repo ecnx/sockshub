@@ -17,9 +17,11 @@ static void show_usage ( void )
         "       -l addr:port      Listen for incoming data\n"
         "       -p addr:port      Primary socks5 server\n"
         "       -c user:pass      Primary socks5 credentials\n"
-        "       -f filter          Primary hostname filter\n"
+        "       -f filter         Primary hostname filter\n"
         "       -s addr:port      Secondary socks5 server\n"
-        "       -q addr:port      Secondary socks5 credentials\n\n"
+        "       -q addr:port      Secondary socks5 credentials\n"
+        "       -z                Use bridge for all servers\n"
+        "       -x greeting       Secondary server greeting\n\n"
         "Note: Both IPv4 and IPv6 can be used\n\n" );
 }
 
@@ -86,7 +88,7 @@ int main ( int argc, char *argv[] )
     /* Parse program arguments */
     for ( ;; )
     {
-        if ( ( c = getopt_long ( argc, argv, "vdg:b:l:p:c:f:s:q:", NULL, &option_index ) ) < 0 )
+        if ( ( c = getopt_long ( argc, argv, "vdg:b:l:p:c:f:s:q:zx:", NULL, &option_index ) ) < 0 )
         {
             break;
         }
@@ -171,6 +173,19 @@ int main ( int argc, char *argv[] )
                 show_usage (  );
                 return 1;
             }
+            break;
+        case 'z':
+            proxy.bridge_both_servers = 1;
+            break;
+        case 'x':
+            len = strlen ( optarg );
+            if ( len >= sizeof ( proxy.secondary_greeting ) )
+            {
+                show_usage (  );
+                return 1;
+            }
+            memcpy ( proxy.secondary_greeting, optarg, len + 1 );
+            proxy.secondary_custom_greeting = 1;
             break;
         default:
             show_usage (  );
