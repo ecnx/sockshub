@@ -80,6 +80,7 @@ struct proxy_t
     struct socks_server_t gateway;
 
     int bridge_enabled;
+    int bridge_both_servers;
     struct socks_server_t bridge;
 
     struct sockaddr_storage entrance;
@@ -89,6 +90,8 @@ struct proxy_t
     char primary_filter[4096];
     int secondary_provided;
     struct socks_server_t secondary;
+    int secondary_custom_greeting;
+    char secondary_greeting[256];
 };
 
 /**
