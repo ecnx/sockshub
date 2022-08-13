@@ -1,10 +1,10 @@
 Purpose
 -------
-Connect Tor then SOCKS-5 Proxy
+* Connect Tor then SOCKS-5 Proxy
 
-SOCKS-5 Authenticator
+* SOCKS-5 Authenticator
 
-Redirect SOCKS-5 Traffic by Hostname Filter
+* Redirect SOCKS-5 Traffic by Hostname Filter
 
 
 Building
