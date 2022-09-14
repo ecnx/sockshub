@@ -85,6 +85,8 @@ static int handle_stream_socks_a ( struct proxy_t *proxy, struct stream_t *strea
     char straddr1[STRADDR_SIZE];
     char hostname[256];
     uint8_t arr[DATA_QUEUE_CAPACITY];
+    struct sockaddr_in saddr_in;
+    struct sockaddr_in6 saddr_in6;
     struct socks_server_t *server = NULL;
 
     /* Expect socket ready to be read */
@@ -203,8 +205,30 @@ static int handle_stream_socks_a ( struct proxy_t *proxy, struct stream_t *strea
             /* Print progress */
             verbose ( "got connect by ipv4 address request from socket:%i\n", stream->fd );
 
-            failure ( "connect by ipv4 address not supported for socket:%i\n", stream->fd );
-            return -1;
+            /* Assert minimum data length */
+            if ( check_enough_data ( proxy, stream, 10 ) < 0 )
+            {
+                return 0;
+            }
+
+           /* Prepare IPv4 address */
+           memcpy(&saddr_in.sin_addr, stream->queue.arr+4,4);
+
+           /* Format hostname from IPv4 address */
+            if (!inet_ntop ( AF_INET,& saddr_in.sin_addr, hostname, sizeof(hostname) )) {
+                failure ( "format hostname from ipv4 address failed for socket:%i\n", stream->fd );
+                return -1;
+            }
+
+            /* Update hostname length */
+            hostlen=strlen(hostname);
+
+            /* Parse port number */
+            port = ( ( stream->queue.arr[8] ) << 8 ) | stream->queue.arr[9];
+
+            /* Print progress */
+            verbose ( "connect by ipv4 address to (%s:%i) requested from socket:%i...\n", hostname,
+                port, stream->fd );
 
         } else if ( stream->queue.arr[3] == 3 )
         {
@@ -243,12 +267,34 @@ static int handle_stream_socks_a ( struct proxy_t *proxy, struct stream_t *strea
                 port, stream->fd );
 
         } else if ( stream->queue.arr[3] == 4 )
-        {
-            /* Print progress */
+        {  
+           /* Print progress */
             verbose ( "got connect by ipv6 address request from socket:%i\n", stream->fd );
 
-            failure ( "connect by ipv6 address not supported for socket:%i\n", stream->fd );
-            return -1;
+            /* Assert minimum data length */
+            if ( check_enough_data ( proxy, stream, 22 ) < 0 )
+            {
+                return 0;
+            }
+
+           /* Prepare IPv6 address */
+           memcpy(&saddr_in6.sin6_addr, stream->queue.arr+4,16);
+
+           /* Format hostname from IPv6 address */
+            if (!inet_ntop ( AF_INET,& saddr_in6.sin6_addr, hostname, sizeof(hostname) )) {
+                failure ( "format hostname from ipv6 address failed for socket:%i\n", stream->fd );
+                return -1;
+            }
+
+            /* Update hostname length */
+            hostlen=strlen(hostname);
+
+            /* Parse port number */
+            port = ( ( stream->queue.arr[20] ) << 8 ) | stream->queue.arr[21];
+
+            /* Print progress */
+            verbose ( "connect by ipv6 address to (%s:%i) requested from socket:%i...\n", hostname,
+                port, stream->fd ); 
 
         } else
         {
